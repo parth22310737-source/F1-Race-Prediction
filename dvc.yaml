@@ -1,0 +1,50 @@
+stages:
+  fetch_data:
+    cmd: python src/data/fetch_data.py --output data/raw/races.csv --params params.yaml
+    deps:
+      - src/data/fetch_data.py
+    params:
+      - data.raw_path
+    outs:
+      - data/raw/races.csv
+
+  preprocess:
+    cmd: python src/data/preprocess.py --input data/raw/races.csv --output data/processed/races_processed.csv --artifacts-dir models --params params.yaml
+    deps:
+      - src/data/preprocess.py
+      - data/raw/races.csv
+    params:
+      - data.processed_path
+      - data.test_size
+      - features.numeric_features
+      - features.categorical_features
+      - features.target_column
+    outs:
+      - data/processed/races_processed.csv
+      - models/scaler.pkl
+      - models/encoders.pkl
+
+  build_features:
+    cmd: python src/features/build_features.py --input data/processed/races_processed.csv --output data/processed/races_features.csv --params params.yaml
+    deps:
+      - src/features/build_features.py
+      - data/processed/races_processed.csv
+    params:
+      - features.target_column
+    outs:
+      - data/processed/races_features.csv
+
+  train:
+    cmd: python src/models/train.py --input data/processed/races_features.csv --model-dir models --params params.yaml
+    deps:
+      - src/models/train.py
+      - data/processed/races_features.csv
+    params:
+      - model
+      - data.test_size
+      - data.random_state
+    outs:
+      - models/model.pkl
+    metrics:
+      - models/metrics.json:
+          cache: false

@@ -1,0 +1,111 @@
+name: CI – Lint, Test & DVC Pipeline
+
+on:
+  push:
+    branches: ["main", "develop", "copilot/**"]
+  pull_request:
+    branches: ["main", "develop"]
+
+jobs:
+  # -------------------------------------------------------------------------
+  # 1. Lint
+  # -------------------------------------------------------------------------
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install lint tools
+        run: pip install flake8 black isort
+
+      - name: flake8
+        run: flake8 src/ api/ tests/ --max-line-length 100 --extend-ignore E203,W503
+
+      - name: black (check mode)
+        run: black --check --line-length 100 src/ api/ tests/
+
+      - name: isort (check mode)
+        run: isort --check-only --profile black src/ api/ tests/
+
+  # -------------------------------------------------------------------------
+  # 2. Unit & integration tests
+  # -------------------------------------------------------------------------
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('requirements.txt') }}
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests with coverage
+        run: pytest tests/ -v --cov=src --cov=api --cov-report=xml --cov-report=term-missing
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-py${{ matrix.python-version }}
+          path: coverage.xml
+
+  # -------------------------------------------------------------------------
+  # 3. DVC pipeline (data + train)
+  # -------------------------------------------------------------------------
+  dvc-pipeline:
+    name: DVC Pipeline
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-dvc-${{ hashFiles('requirements.txt') }}
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run DVC pipeline
+        run: dvc repro --no-commit
+
+      - name: Show metrics
+        run: dvc metrics show || true
+
+      - name: Upload model artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-artifacts
+          path: models/
