@@ -1,0 +1,63 @@
+stages:
+  ingest:
+    cmd: python src/data_ingestion.py
+    deps:
+      - src/data_ingestion.py
+    params:
+      - data.seasons
+    outs:
+      - data/raw/races.csv
+      - data/raw/drivers.csv
+      - data/raw/constructors.csv
+      - data/raw/qualifying.csv
+
+  preprocess:
+    cmd: python src/preprocessing.py
+    deps:
+      - src/preprocessing.py
+      - data/raw/races.csv
+      - data/raw/drivers.csv
+      - data/raw/constructors.csv
+      - data/raw/qualifying.csv
+    outs:
+      - data/processed/train.csv
+      - data/processed/test.csv
+      - data/processed/val.csv
+
+  featurize:
+    cmd: python src/feature_engineering.py
+    deps:
+      - src/feature_engineering.py
+      - data/processed/train.csv
+      - data/processed/test.csv
+      - data/processed/val.csv
+    outs:
+      - data/processed/train_features.csv
+      - data/processed/test_features.csv
+      - data/processed/val_features.csv
+      - data/processed/feature_names.json
+
+  train:
+    cmd: python src/train.py
+    deps:
+      - src/train.py
+      - data/processed/train_features.csv
+      - data/processed/val_features.csv
+    params:
+      - model
+    outs:
+      - models/race_predictor.pkl
+      - models/strategy_recommender.pkl
+      - models/scaler.pkl
+
+  evaluate:
+    cmd: python src/evaluate.py
+    deps:
+      - src/evaluate.py
+      - models/race_predictor.pkl
+      - models/strategy_recommender.pkl
+      - models/scaler.pkl
+      - data/processed/test_features.csv
+    metrics:
+      - metrics/evaluation.json:
+          cache: false
