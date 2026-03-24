@@ -1,0 +1,54 @@
+name: DVC Pipeline
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "src/**"
+      - "params.yaml"
+      - "dvc.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dvc-repro:
+    name: Reproduce DVC Pipeline
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Set up DVC
+        uses: iterative/setup-dvc@v1
+
+      # Uncomment and configure remote storage (e.g. S3, GCS, Azure Blob) when available:
+      # - name: Configure DVC remote
+      #   run: dvc remote modify myremote access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+
+      - name: Run DVC pipeline
+        run: dvc repro --no-lock
+        env:
+          # Set remote credentials here when a DVC remote is configured
+          PYTHONPATH: src
+
+      - name: Show metrics
+        run: dvc metrics show || true
+
+      - name: Upload metrics
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dvc-metrics
+          path: metrics/
