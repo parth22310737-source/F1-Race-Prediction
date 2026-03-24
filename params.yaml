@@ -1,0 +1,32 @@
+data:
+  raw_path: data/raw/races.csv
+  processed_path: data/processed/races_processed.csv
+  test_size: 0.2
+  random_state: 42
+
+features:
+  target_column: finish_position
+  numeric_features:
+    - grid_position
+    - driver_age
+    - constructor_points
+    - driver_points
+    - laps_completed
+    - qualifying_time_ms
+  categorical_features:
+    - circuit_type
+    - weather
+
+model:
+  type: random_forest
+  n_estimators: 200
+  max_depth: 10
+  min_samples_split: 5
+  random_state: 42
+
+strategy:
+  soft_tire_life: 25
+  medium_tire_life: 35
+  hard_tire_life: 50
+  pit_stop_time_loss: 22
+  safety_car_probability: 0.3
